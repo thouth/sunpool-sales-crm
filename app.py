@@ -19,43 +19,42 @@ if uploaded_file:
     ]
     st.write("Innhold i opplastet fil:")
     st.dataframe(df)
-    
-    # Lagring til Supabase
+
+    # --- Lagre til Supabase ---
     if st.button("Lagre til database (Supabase)"):
-    supabase = get_supabase_client()
+        supabase = get_supabase_client()
 
-    # 1. Dato til ISO-streng
-    if "dato" in df.columns:
-        df["dato"] = pd.to_datetime(df["dato"], errors="coerce").dt.strftime('%Y-%m-%dT%H:%M:%S')
+        # 1. Konverter dato til ISO-format hvis kolonnen finnes
+        if "dato" in df.columns:
+            df["dato"] = pd.to_datetime(df["dato"], errors="coerce").dt.strftime('%Y-%m-%dT%H:%M:%S')
 
-    # 2. Fjern verdier som ikke kan serialiseres til JSON
-    df = df.replace([float('inf'), float('-inf')], None)
-    df = df.where(pd.notnull(df), None)
+        # 2. Rens: fjern verdier som ikke kan serialiseres
+        df = df.replace([float('inf'), float('-inf')], None)
+        df = df.where(pd.notnull(df), None)
 
-    # 3. Konverter eksplisitt alle kolonner til string, float eller None
-    def clean_json(row):
-        clean = {}
-        for k, v in row.items():
-            if isinstance(v, (float, int, str)) or v is None:
-                clean[k] = v
+        # 3. Klargjør JSON-sikre rader
+        def clean_json(row):
+            clean = {}
+            for k, v in row.items():
+                if isinstance(v, (float, int, str)) or v is None:
+                    clean[k] = v
+                else:
+                    clean[k] = str(v)
+            return clean
+
+        data_dicts = [clean_json(row) for _, row in df.iterrows()]
+
+        # 4. Send til Supabase
+        try:
+            response = supabase.table("leads").insert(data_dicts).execute()
+            if hasattr(response, "data") and response.data:
+                st.success("Data lagret i Supabase!")
             else:
-                clean[k] = str(v)  # fallback
-        return clean
+                st.error(f"Feil: {getattr(response, 'error', response)}")
+        except Exception as e:
+            st.error(f"Feil ved lagring: {str(e)}")
 
-    data_dicts = [clean_json(row) for _, row in df.iterrows()]
-
-    # 4. Send til Supabase
-    try:
-        response = supabase.table("leads").insert(data_dicts).execute()
-        if hasattr(response, "data") and response.data:
-            st.success("Data lagret i Supabase!")
-        else:
-            st.error(f"Feil: {getattr(response, 'error', response)}")
-    except Exception as e:
-        st.error(f"Feil ved lagring: {str(e)}")
-
-
-# --- Les ut data fra database ---
+# --- Hent og vis data fra database ---
 if st.button("Hent alle leads fra database"):
     supabase = get_supabase_client()
     res = supabase.table("leads").select("*").execute()
