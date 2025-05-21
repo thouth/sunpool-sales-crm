@@ -23,6 +23,9 @@ if uploaded_file:
     # Lagring til Supabase
     if st.button("Lagre til database (Supabase)"):
         supabase = get_supabase_client()
+        # Konverter dato til isoformat-streng hvis kolonnen finnes
+        if "dato" in df.columns:
+            df["dato"] = pd.to_datetime(df["dato"], errors="coerce").dt.strftime('%Y-%m-%dT%H:%M:%S')
         data_dicts = df.where(pd.notnull(df), None).to_dict(orient="records")
         response = supabase.table("leads").insert(data_dicts).execute()
         if hasattr(response, "data") and response.data:
