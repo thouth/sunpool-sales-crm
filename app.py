@@ -22,16 +22,21 @@ if uploaded_file:
     
     # Lagring til Supabase
     if st.button("Lagre til database (Supabase)"):
-        supabase = get_supabase_client()
-        # Konverter dato til isoformat-streng hvis kolonnen finnes
-        if "dato" in df.columns:
-            df["dato"] = pd.to_datetime(df["dato"], errors="coerce").dt.strftime('%Y-%m-%dT%H:%M:%S')
-        data_dicts = df.where(pd.notnull(df), None).to_dict(orient="records")
-        response = supabase.table("leads").insert(data_dicts).execute()
-        if hasattr(response, "data") and response.data:
-            st.success("Data lagret i Supabase!")
-        else:
-            st.error(f"Feil: {getattr(response, 'error', response)}")
+    supabase = get_supabase_client()
+
+    if "dato" in df.columns:
+        df["dato"] = pd.to_datetime(df["dato"], errors="coerce").dt.strftime('%Y-%m-%dT%H:%M:%S')
+
+    df = df.replace([float('inf'), float('-inf')], None)
+    df = df.where(pd.notnull(df), None)
+    data_dicts = df.to_dict(orient="records")
+
+    response = supabase.table("leads").insert(data_dicts).execute()
+    if hasattr(response, "data") and response.data:
+        st.success("Data lagret i Supabase!")
+    else:
+        st.error(f"Feil: {getattr(response, 'error', response)}")
+
 
 # --- Les ut data fra database ---
 if st.button("Hent alle leads fra database"):
